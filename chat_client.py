@@ -70,7 +70,7 @@ class ChatClient:
         """Chat client main loop"""
         while self.connected:
             try:
-                sys.stdout.write(self.prompt + "xxxxxxxxxxxxxxxxxxxx")
+                sys.stdout.write(self.prompt)
                 sys.stdout.flush()
 
                 # Wait for input from stdin and socket
