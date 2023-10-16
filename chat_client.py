@@ -8,7 +8,7 @@ import ssl
 
 from utils import *
 
-SERVER_HOST = 'localhost'
+SERVER_HOST = "localhost"
 
 stop_thread = False
 
@@ -20,11 +20,10 @@ def get_and_send(client):
             send(client.sock, data)
 
 
-class ChatClient():
-    """ A command line chat client using select """
+class ChatClient:
+    """A command line chat client using select"""
 
-    def __init__(self, name, port, host=SERVER_HOST):
-        self.name = name
+    def __init__(self, port, host=SERVER_HOST):
         self.connected = False
         self.host = host
         self.port = port
@@ -32,30 +31,35 @@ class ChatClient():
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
 
         # Initial prompt
-        self.prompt = f'[{name}@{socket.gethostname()}]> '
+        self.prompt = None
+        self.name = None
 
         # Connect to server at port
+        self.connect_to_server()
+        threading.Thread(target=get_and_send, args=(self,)).start()
+
+    def connect_to_server(self):
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock = self.context.wrap_socket(
-                self.sock, server_hostname=host)
+            self.sock = self.context.wrap_socket(self.sock, server_hostname=self.host)
 
-            self.sock.connect((host, self.port))
-            print(f'Now connected to chat server@ port {self.port}')
+            self.sock.connect((self.host, self.port))
+            print(f"Now connected to chat server@ port {self.port}")
             self.connected = True
 
             # Send my name...
-            send(self.sock, 'NAME: ' + self.name)
+            print("Login")
+            self.name = input("Username: ")
+
+            send(self.sock, "NAME: " + self.name)
             data = receive(self.sock)
 
             # Contains client address, set it
-            addr = data.split('CLIENT: ')[1]
-            self.prompt = '[' + '@'.join((self.name, addr)) + ']> '
-
-            threading.Thread(target=get_and_send, args=(self,)).start()
+            # addr = data.split("CLIENT: ")[1]
+            self.prompt = "me: "
 
         except socket.error as e:
-            print(f'Failed to connect to chat server @ port {self.port}')
+            print(f"Failed to connect to chat server @ port {self.port}")
             sys.exit(1)
 
     def cleanup(self):
@@ -63,16 +67,15 @@ class ChatClient():
         self.sock.close()
 
     def run(self):
-        """ Chat client main loop """
+        """Chat client main loop"""
         while self.connected:
             try:
-                sys.stdout.write(self.prompt)
+                sys.stdout.write(self.prompt + "xxxxxxxxxxxxxxxxxxxx")
                 sys.stdout.flush()
 
                 # Wait for input from stdin and socket
                 # readable, writeable, exceptional = select.select([0, self.sock], [], [])
-                readable, writeable, exceptional = select.select(
-                    [self.sock], [], [])
+                readable, writeable, exceptional = select.select([self.sock], [], [])
 
                 for sock in readable:
                     # if sock == 0:
@@ -82,11 +85,11 @@ class ChatClient():
                     if sock == self.sock:
                         data = receive(self.sock)
                         if not data:
-                            print('Client shutting down.')
+                            print("Client shutting down.")
                             self.connected = False
                             break
                         else:
-                            sys.stdout.write(data + '\n')
+                            sys.stdout.write(data + "\n")
                             sys.stdout.flush()
 
             except KeyboardInterrupt:
@@ -98,13 +101,10 @@ class ChatClient():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', action="store", dest="name", required=True)
-    parser.add_argument('--port', action="store",
-                        dest="port", type=int, required=True)
+    parser.add_argument("--port", action="store", dest="port", type=int, required=True)
     given_args = parser.parse_args()
 
     port = given_args.port
-    name = given_args.name
 
-    client = ChatClient(name=name, port=port)
+    client = ChatClient(port=port)
     client.run()
