@@ -91,6 +91,13 @@ class ChatClient:
                         else:
                             sys.stdout.write(data + "\n")
                             sys.stdout.flush()
+                    elif sock == sys.stdin:
+                        data = sys.stdin.readline().strip()
+                        if data:
+                            if data == "-list":
+                                self.send_list_request()  # Send a request for the list of clients
+                            else:
+                                send(self.sock, data)
 
             except KeyboardInterrupt:
                 print(" Client interrupted. " "")

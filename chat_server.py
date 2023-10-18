@@ -50,6 +50,12 @@ class ChatServer(object):
         name = info[1]
         return name
 
+    def list_clients(self, client_sock):
+        """Send a list of connected clients to the requesting client"""
+        client_names = [self.get_client_name(sock) for sock in self.clientmap]
+        client_list = "Online Users:\n" + "\n".join(client_names)
+        send(client_sock, client_list)
+
     def run(self):
         # inputs = [self.server, sys.stdin]
         inputs = [self.server]
@@ -82,7 +88,7 @@ class ChatServer(object):
 
                     self.clientmap[client] = (address, cname)
                     # Send joining information to other clients
-                    msg = f"\n(Connected: New client ({self.clients}) from {self.get_client_name(client)})"
+                    msg = f"\n(Connected: ({self.clients}) is online from {self.get_client_name(client)})"
                     for output in self.outputs:
                         send(output, msg)
                     self.outputs.append(client)
@@ -100,13 +106,18 @@ class ChatServer(object):
                     try:
                         data = receive(sock)
                         if data:
-                            # Send as new client's message...
-                            msg = f"\n{self.get_client_name(sock)}: {data}"
+                            if data == "-list":
+                                self.list_clients(
+                                    sock
+                                )  # Handle the client's request for the list
+                            else:
+                                # Send as new client's message...
+                                msg = f"\n{self.get_client_name(sock)}: {data}"
 
-                            # Send data to all except ourself
-                            for output in self.outputs:
-                                if output != sock:
-                                    send(output, msg)
+                                # Send data to all except ourself
+                                for output in self.outputs:
+                                    if output != sock:
+                                        send(output, msg)
                         else:
                             print(f"Chat server: {sock.fileno()} hung up")
                             self.clients -= 1
