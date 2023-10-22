@@ -4,6 +4,7 @@ import sys
 import signal
 import argparse
 import ssl
+import bcrypt
 
 from utils import *
 
@@ -17,6 +18,10 @@ class ChatServer(object):
         self.clients = 0
         self.clientmap = {}
         self.outputs = []  # list output sockets
+
+        self.user_credentials = {}
+        self.load_user_credentials()
+        self.user_credentials_file = "user_credentials.txt"
 
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         self.context.load_cert_chain(certfile="cert.pem", keyfile="cert.pem")
@@ -33,6 +38,14 @@ class ChatServer(object):
         signal.signal(signal.SIGINT, self.sighandler)
 
         print(f"Server listening to port: {port} ...")
+
+    def load_user_credentials(self):
+        # Load user credentials from a file (e.g., "user_credentials.txt")
+        self.user_credentials = {}
+        with open("user_credentials.txt", "r") as file:
+            for line in file:
+                username, hashed_password = line.strip().split(":")
+                self.user_credentials[username] = hashed_password.encode("utf-8")
 
     def sighandler(self, signum, frame):
         """Clean up client outputs"""
@@ -55,6 +68,38 @@ class ChatServer(object):
         client_names = [self.get_client_name(sock) for sock in self.clientmap]
         client_list = "Online Users:\n" + "\n".join(client_names)
         send(client_sock, client_list)
+
+    def login(self, client_sock, user_info):
+        username = user_info.strip()
+        if username in self.user_credentials:
+            # Username exists, request password
+            send(client_sock, "Existing user.")
+            received_password = receive(client_sock).strip()
+            print(f"{received_password}")
+            stored_password = self.user_credentials[username]
+            if bcrypt.checkpw(received_password.encode("utf-8"), stored_password):
+                send(client_sock, "Login successful")
+                return True
+            else:
+                send(client_sock, "Login failed. Incorrect password.")
+                return False
+        else:
+            send(client_sock, "Username not recognized.")
+            # Username doesn't exist, allow registration
+            new_password = receive(client_sock).strip()
+
+            # Hash the new password before storing it
+            hashed_password = bcrypt.hashpw(
+                new_password.encode("utf-8"), bcrypt.gensalt()
+            )
+
+            # Write the new user's credentials to the file
+            with open(self.user_credentials_file, "a") as file:
+                file.write(f"{username}:{hashed_password.decode('utf-8')}\n")
+
+            self.user_credentials[username] = hashed_password
+            send(client_sock, "Registration successful.")
+            return True
 
     def run(self):
         # inputs = [self.server, sys.stdin]
@@ -79,28 +124,23 @@ class ChatServer(object):
                         f"Chat server: got connection {client.fileno()} from {address}"
                     )
                     # Read the login name
-                    cname = receive(client).split("NAME: ")[1]
+                    cname = receive(client).split("USERNAME: ")[1]
+                    if self.login(client, cname):
+                        # Compute client name and send back
+                        self.clients += 1
+                        send(client, f"CLIENT: {str(address[0])}")
+                        inputs.append(client)
 
-                    # Compute client name and send back
-                    self.clients += 1
-                    send(client, f"CLIENT: {str(address[0])}")
-                    inputs.append(client)
+                        self.clientmap[client] = (address, cname)
+                        # Send joining information to other clients
+                        msg = f"\n(Connected: ({self.clients}) is online from {self.get_client_name(client)})"
+                        for output in self.outputs:
+                            send(output, msg)
+                        self.outputs.append(client)
+                    else:
+                        # If login fails, close the connection
+                        client.close()
 
-                    self.clientmap[client] = (address, cname)
-                    # Send joining information to other clients
-                    msg = f"\n(Connected: ({self.clients}) is online from {self.get_client_name(client)})"
-                    for output in self.outputs:
-                        send(output, msg)
-                    self.outputs.append(client)
-
-                # elif sock == sys.stdin:
-                #     # didn't test sys.stdin on windows system
-                #     # handle standard input
-                #     cmd = sys.stdin.readline().strip()
-                #     if cmd == 'list':
-                #         print(self.clientmap.values())
-                #     elif cmd == 'quit':
-                #         running = False
                 else:
                     # handle all other sockets
                     try:

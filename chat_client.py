@@ -50,13 +50,34 @@ class ChatClient:
             # Send my name...
             print("Login")
             self.name = input("Username: ")
-
-            send(self.sock, "NAME: " + self.name)
+            send(self.sock, "USERNAME: " + self.name)
             data = receive(self.sock)
-
-            # Contains client address, set it
-            # addr = data.split("CLIENT: ")[1]
-            self.prompt = "me: "
+            if data.startswith("Username not recognized"):
+                self.password = input("Username not recognized. Create a password: ")
+                send(self.sock, "Registered password: " + self.password)
+                rego_data = receive(self.sock)
+                if rego_data.startswith("Registration successful"):
+                    print(rego_data)
+                    self.prompt = "Me: "
+                else:
+                    print("Registration failed")
+                    self.connected = False
+            elif data.startswith("Existing user"):
+                self.password = input("Enter your password: ")
+                send(self.sock, "Password: " + self.password)
+                login_data = receive(self.sock)
+                if login_data.startswith("Login failed"):
+                    print(login_data)
+                    self.connected = False
+                elif login_data.startswith("Login successful"):
+                    print(login_data)
+                    self.prompt = "Me: "
+                else:
+                    print(login_data)
+                    self.connected = False
+            else:
+                print(login_data)
+                self.connected = False
 
         except socket.error as e:
             print(f"Failed to connect to chat server @ port {self.port}")
@@ -78,10 +99,6 @@ class ChatClient:
                 readable, writeable, exceptional = select.select([self.sock], [], [])
 
                 for sock in readable:
-                    # if sock == 0:
-                    #     data = sys.stdin.readline().strip()
-                    #     if data:
-                    #         send(self.sock, data)
                     if sock == self.sock:
                         data = receive(self.sock)
                         if not data:
