@@ -41,11 +41,10 @@ class ChatServer(object):
 
     def load_user_credentials(self):
         # Load user credentials from a file (e.g., "user_credentials.txt")
-        self.user_credentials = {}
         with open("user_credentials.txt", "r") as file:
             for line in file:
                 username, hashed_password = line.strip().split(":")
-                self.user_credentials[username] = hashed_password.encode("utf-8")
+                self.user_credentials[username] = hashed_password
 
     def sighandler(self, signum, frame):
         """Clean up client outputs"""
@@ -74,8 +73,7 @@ class ChatServer(object):
         if username in self.user_credentials:
             # Username exists, request password
             send(client_sock, "Existing user.")
-            received_password = receive(client_sock).strip()
-            print(f"{received_password}")
+            received_password = receive(client_sock).split("Password: ")[1]
             stored_password = self.user_credentials[username]
             if bcrypt.checkpw(received_password.encode("utf-8"), stored_password):
                 send(client_sock, "Login successful")
@@ -86,7 +84,7 @@ class ChatServer(object):
         else:
             send(client_sock, "Username not recognized.")
             # Username doesn't exist, allow registration
-            new_password = receive(client_sock).strip()
+            new_password = receive(client_sock).split("Registered password: ")[1]
 
             # Hash the new password before storing it
             hashed_password = bcrypt.hashpw(
@@ -95,7 +93,7 @@ class ChatServer(object):
 
             # Write the new user's credentials to the file
             with open(self.user_credentials_file, "a") as file:
-                file.write(f"{username}:{hashed_password.decode('utf-8')}\n")
+                file.write(f"{username}:{hashed_password}\n")
 
             self.user_credentials[username] = hashed_password
             send(client_sock, "Registration successful.")

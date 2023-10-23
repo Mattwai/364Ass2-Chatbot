@@ -69,15 +69,18 @@ class ChatClient:
                 if login_data.startswith("Login failed"):
                     print(login_data)
                     self.connected = False
+                    self.cleanup()
                 elif login_data.startswith("Login successful"):
                     print(login_data)
                     self.prompt = "Me: "
                 else:
                     print(login_data)
                     self.connected = False
+                    self.cleanup()
             else:
                 print(login_data)
                 self.connected = False
+                self.cleanup()
 
         except socket.error as e:
             print(f"Failed to connect to chat server @ port {self.port}")
