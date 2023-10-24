@@ -28,7 +28,8 @@ class ChatClient:
         self.host = host
         self.port = port
 
-        self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2, ssl.CERT_NONE)
+        self.context.set_ciphers('AES128-SHA')
 
         # Initial prompt
         self.prompt = None

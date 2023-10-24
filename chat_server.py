@@ -19,9 +19,8 @@ class ChatServer(object):
         self.clientmap = {}
         self.outputs = []  # list output sockets
 
-        self.user_credentials = {}
         self.load_user_credentials()
-        self.user_credentials_file = "user_credentials.txt"
+        self.user_credentials = {}
 
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         self.context.load_cert_chain(certfile="cert.pem", keyfile="cert.pem")
@@ -40,11 +39,16 @@ class ChatServer(object):
         print(f"Server listening to port: {port} ...")
 
     def load_user_credentials(self):
-        # Load user credentials from a file (e.g., "user_credentials.txt")
-        with open("user_credentials.txt", "r") as file:
-            for line in file:
-                username, hashed_password = line.strip().split(":")
-                self.user_credentials[username] = hashed_password
+        try:
+            with open("user_credentials.p", "rb") as file:
+                self.user_credentials = pickle.load(file)
+        except FileNotFoundError:
+            print("No file found")
+
+    def save_user_credentials(self):
+        # Save user credentials to a pickled file
+        with open("user_credentials.p", "wb") as file:
+            pickle.dump(self.user_credentials, file)
 
     def sighandler(self, signum, frame):
         """Clean up client outputs"""
@@ -92,8 +96,7 @@ class ChatServer(object):
             )
 
             # Write the new user's credentials to the file
-            with open(self.user_credentials_file, "a") as file:
-                file.write(f"{username}:{hashed_password}\n")
+            self.save_user_credentials()
 
             self.user_credentials[username] = hashed_password
             send(client_sock, "Registration successful.")
