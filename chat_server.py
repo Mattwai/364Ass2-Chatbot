@@ -96,9 +96,9 @@ class ChatServer(object):
             )
 
             # Write the new user's credentials to the file
+            self.user_credentials[username] = hashed_password
             self.save_user_credentials()
 
-            self.user_credentials[username] = hashed_password
             send(client_sock, "Registration successful.")
             return True
 
