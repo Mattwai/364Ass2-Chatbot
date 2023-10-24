@@ -102,6 +102,17 @@ class ChatServer(object):
             send(client_sock, "Registration successful.")
             return True
 
+    def send_message_to_client(self, sender_username, target_username, message):
+        for client_sock, (address, username) in self.clientmap.items():
+            if username == target_username:
+                # Found the target client, send them the message with sender's username
+                msg = f"\n{sender_username}: {message}"
+                send(client_sock, msg)
+                return
+        # If the target client is not found, handle the error accordingly
+        error_msg = f"\nServer: Client '{target_username}' not found or not connected."
+        print(error_msg)
+
     def run(self):
         # inputs = [self.server, sys.stdin]
         inputs = [self.server]
@@ -151,6 +162,13 @@ class ChatServer(object):
                                 self.list_clients(
                                     sock
                                 )  # Handle the client's request for the list
+                            elif data.startswith("-sendto"):
+                                target_username, message = data[
+                                    len("-sendto ") :
+                                ].split(" ", 1)
+                                self.send_message_to_client(
+                                    self.get_client_name(sock), target_username, message
+                                )
                             else:
                                 # Send as new client's message...
                                 msg = f"\n{self.get_client_name(sock)}: {data}"
